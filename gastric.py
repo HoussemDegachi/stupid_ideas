@@ -18,6 +18,7 @@ Outcome
 from __future__ import annotations
 
 import ast
+import json
 import os
 import random
 import re
@@ -296,22 +297,100 @@ def report_problems(path, src_lines, problems):
         print(c("91;1", p.kind) + f": {p.message}\n", file=sys.stderr)
 
 
-def report_diarrhea(path, src_lines, servings, d):
+def crossing(servings, threshold):
+    """The last serving at which the running load crossed `threshold`."""
+    eaten = [s for s in servings if s.eaten and s.food]
+    tip = eaten[-1] if eaten else None
+    for i in range(len(eaten)):
+        if digest(eaten[:i]).severity < threshold <= digest(eaten[: i + 1]).severity:
+            tip = eaten[i]
+    return tip
+
+
+def diarrhea_info(servings, d):
     key = cause_of(d)
     cause, rx = CAUSES[key]
-    # the line that tipped the stomach over
-    eaten = [s for s in servings if s.eaten]
-    tip = eaten[-1]
-    for i in range(len(eaten)):
-        before = digest(eaten[:i]).severity
-        after = digest(eaten[: i + 1]).severity
-        if before < 100 <= after:
-            tip = eaten[i]
+    tip = crossing(servings, 100)
     expelled = []
-    for s in eaten:
-        if FOODS[s.food].get(key, 0) > 0 and s.name not in expelled:
+    for s in servings:
+        if s.eaten and s.food and FOODS[s.food].get(key, 0) > 0 and s.name not in expelled:
             expelled.append(s.name)
+    return key, cause, rx, tip, expelled
 
+
+def category_of(food: str) -> str:
+    f = FOODS[food]
+    if f.get("antacid"):
+        return "remedy"
+    best = max(("fat", "dairy", "spice", "bulk", "fiber"), key=lambda k: f.get(k, 0))
+    return best if f.get(best, 0) > 0 else "bulk"
+
+
+def check_report(src: str, path: str) -> dict:
+    """Everything the editor needs, as JSON-ready data. Lines are 1-based, columns 0-based characters."""
+    src_lines = src.splitlines()
+
+    def char_col(line: int, byte_col: int) -> int:
+        text = src_lines[line - 1] if 0 < line <= len(src_lines) else ""
+        return len(text.encode("utf-8")[:byte_col].decode("utf-8", errors="ignore"))
+
+    try:
+        tree = ast.parse(src, filename=path)
+    except SyntaxError as e:
+        line = e.lineno or 1
+        return {"syntax_error": True, "problems": [{
+            "kind": "SyntaxError", "message": f"{e.msg} (the stomach can't even chew this)",
+            "line": line, "col": max(0, (e.offset or 1) - 1), "width": 1, "severity": "error"}]}
+
+    servings, diets, problems = analyze(tree)
+    d = digest(servings)
+    stage = stage_of(d.severity)
+    out_problems = [{"kind": p.kind, "message": p.message, "line": p.line,
+                     "col": char_col(p.line, p.col), "width": p.width, "severity": "error"} for p in problems]
+
+    diarrhea = None
+    if stage == "diarrhea" and not problems:
+        key, cause, rx, tip, expelled = diarrhea_info(servings, d)
+        diarrhea = {"key": key, "cause": cause, "hint": rx, "line": tip.line, "expelled": expelled}
+        out_problems.append({"kind": "DiarrheaError", "message": f"{cause}. Expelled: {', '.join(expelled)}. "
+                             f"Try `{rx}`.", "line": tip.line, "col": char_col(tip.line, tip.col),
+                             "width": len(tip.name), "severity": "error"})
+    elif 75 <= d.severity < 100 and not problems:
+        tip = crossing(servings, 75)
+        out_problems.append({"kind": "Gurgle", "message": f"🤢 Your program is not feeling well "
+                             f"({d.severity:.0f}% full). Output will contain 💩.", "line": tip.line,
+                             "col": char_col(tip.line, tip.col), "width": len(tip.name), "severity": "warning"})
+
+    tokens = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name):
+            name, line, col = node.id, node.lineno, node.col_offset
+        elif isinstance(node, ast.arg):
+            name, line, col = node.arg, node.lineno, node.col_offset
+        else:
+            continue
+        food = lookup(name)
+        if food:
+            tokens.append({"line": line, "col": char_col(line, col), "len": len(name), "name": name,
+                           "food": food, "category": category_of(food), "nutrients": FOODS[food]})
+
+    fill_raw = d.fat + 0.4 * d.dairy + 0.3 * d.spice + d.bulk
+    return {
+        "syntax_error": False,
+        "stage": stage,
+        "blocked": bool(problems),
+        "severity": d.severity, "fill": d.fill, "gas": d.gas, "heat": d.heat,
+        "fat_eff": d.fat * d.fill / fill_raw if fill_raw else 0.0,
+        "diets": diets,
+        "servings": sum(1 for s in servings if s.eaten and s.food),
+        "problems": out_problems,
+        "diarrhea": diarrhea,
+        "tokens": tokens,
+    }
+
+
+def report_diarrhea(path, src_lines, servings, d):
+    key, cause, rx, tip, expelled = diarrhea_info(servings, d)
     print(c("91", "💩" * 12), file=sys.stderr)
     print("Traceback (most recent call last):", file=sys.stderr)
     print(f'  File "{path}", line {tip.line}, in <stomach>', file=sys.stderr)
@@ -375,11 +454,15 @@ def main(argv: list[str]) -> int:
         except AttributeError:
             pass
 
-    quiet = False
+    quiet = check = use_stdin = False
     while argv and argv[0].startswith("-"):
         flag = argv.pop(0)
         if flag in ("-q", "--quiet"):
             quiet = True
+        elif flag == "--check":   # analyze only, print JSON (used by the VS Code extension)
+            check = True
+        elif flag == "--stdin":   # read the source from stdin (unsaved editor buffers)
+            use_stdin = True
         elif flag in ("-h", "--help"):
             print(__doc__)
             return 0
@@ -391,8 +474,14 @@ def main(argv: list[str]) -> int:
         return 2
 
     path = argv[0]
-    with open(path, encoding="utf-8") as f:
-        src = f.read()
+    if use_stdin:
+        src = sys.stdin.buffer.read().decode("utf-8", errors="replace")
+    else:
+        with open(path, encoding="utf-8") as f:
+            src = f.read()
+    if check:
+        print(json.dumps(check_report(src, path)))
+        return 0
     src_lines = src.splitlines()
 
     try:

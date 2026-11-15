@@ -35,3 +35,14 @@ Try every file in [examples/](examples/).
 ## Browser: `index.html`
 
 A live visual prototype: a stomach beside an editor reacts as you type. Open it in a browser.
+
+## VS Code: GastroScript (`.gs`)
+
+The extension is in [vscode-gastroscript/](vscode-gastroscript/). It adds live food squiggles, food colors,
+nutrient hovers, a stomach meter in the status bar, a live stomach panel and a ▶ run button.
+
+```
+py vscode-gastroscript/build_vsix.py
+code --install-extension vscode-gastroscript/gastroscript-0.1.0.vsix
+```
+Then open [examples/demo.gs](examples/demo.gs).

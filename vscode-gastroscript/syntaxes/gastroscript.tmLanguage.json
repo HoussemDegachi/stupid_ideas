@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "GastroScript",
+  "scopeName": "source.gastroscript",
+  "patterns": [
+    { "include": "#diet-import" },
+    { "include": "source.python" }
+  ],
+  "repository": {
+    "diet-import": {
+      "comment": "from diet import vegan, keto   /   import lactose_free",
+      "match": "^\\s*(?:(from)\\s+(diets?)\\s+(import)|(import))\\s+((?:vegan|vegetarian|pescatarian|lactose_free|gluten_free|keto|halal|kosher|mild|nut_free|\\*)(?:\\s*,\\s*(?:vegan|vegetarian|pescatarian|lactose_free|gluten_free|keto|halal|kosher|mild|nut_free))*)\\s*(#.*)?$",
+      "captures": {
+        "1": { "name": "keyword.control.import.python" },
+        "2": { "name": "entity.name.namespace.python" },
+        "3": { "name": "keyword.control.import.python" },
+        "4": { "name": "keyword.control.import.python" },
+        "5": { "name": "support.class.diet.gastroscript" },
+        "6": { "name": "comment.line.number-sign.python" }
+      }
+    }
+  }
+}

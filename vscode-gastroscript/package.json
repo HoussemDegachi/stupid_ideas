@@ -1,0 +1,116 @@
+{
+  "name": "gastroscript",
+  "displayName": "GastroScript",
+  "description": "Python with a stomach. Every variable is food; too much food has consequences.",
+  "version": "0.1.0",
+  "publisher": "stupid-ideas",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:gastroscript"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "gastroscript",
+        "aliases": [
+          "GastroScript",
+          "gastroscript"
+        ],
+        "extensions": [
+          ".gs",
+          ".gastro"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/gs.svg",
+          "dark": "./icons/gs.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "gastroscript",
+        "scopeName": "source.gastroscript",
+        "path": "./syntaxes/gastroscript.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "gastroscript.run",
+        "title": "Run GastroScript",
+        "category": "GastroScript",
+        "icon": "$(play)"
+      },
+      {
+        "command": "gastroscript.showStomach",
+        "title": "Show Stomach",
+        "category": "GastroScript",
+        "icon": "$(pulse)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "gastroscript.showStomach",
+          "when": "resourceLangId == gastroscript",
+          "group": "navigation@1"
+        },
+        {
+          "command": "gastroscript.run",
+          "when": "resourceLangId == gastroscript",
+          "group": "navigation@2"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "gastroscript.run",
+        "key": "ctrl+alt+g",
+        "mac": "cmd+alt+g",
+        "when": "editorLangId == gastroscript"
+      }
+    ],
+    "taskDefinitions": [
+      {
+        "type": "gastroscript",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "The GastroScript file to run."
+          }
+        }
+      }
+    ],
+    "configuration": {
+      "title": "GastroScript",
+      "properties": {
+        "gastroscript.pythonPath": {
+          "type": "string",
+          "default": "",
+          "description": "Python executable used to run gastric.py. Empty = `py` on Windows, `python3` elsewhere."
+        },
+        "gastroscript.gastricPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to gastric.py. Empty = the copy bundled with the extension, then gastric.py in the workspace root."
+        },
+        "gastroscript.bodyEffects": {
+          "type": "boolean",
+          "default": true,
+          "description": "Let the code get chubby and bold as the stomach fills."
+        }
+      }
+    }
+  }
+}
