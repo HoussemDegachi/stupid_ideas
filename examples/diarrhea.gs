@@ -1,6 +1,6 @@
 # High intensity computational task with heavy loads
 lard = 3
-ghost_pepper = 2
+x = 2
 celery = 10
 
 chicken = [12, 45, 89, 23, 67, 99, 34]
