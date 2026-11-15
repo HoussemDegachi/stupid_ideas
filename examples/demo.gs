@@ -1,6 +1,3 @@
-# GastroScript demo. Open the stomach (pulse icon, top right) and start eating.
-# Try adding:   jalapeno = 2     cheddar = 1     counter = 0
-# Rescue with:  celery = 1       antacid = 1
 from diet import halal
 
 rice = 2
